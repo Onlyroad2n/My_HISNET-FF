@@ -1,0 +1,8 @@
+datasets
+weights
+feature_file
+weights-b7
+weights_fusion
+
+*.pkl
+*.pyc
