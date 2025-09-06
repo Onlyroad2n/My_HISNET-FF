@@ -20,12 +20,13 @@ class HierarchicalPredictor:
     单模态预测器（属+种两级）
     """
     def __init__(self, model_name='efficientnet_b7', data_type='head',
-                 dataset_name=None, weights_root=None, device='cuda:0'):
+                 dataset_name=None, weights_root=None,input_size=600, device='cuda:0'):
         self.model_name = model_name
         self.data_type = data_type
         self.dataset_name = dataset_name
         self.device = torch.device(device if torch.cuda.is_available() else "cpu")
         self.weights_root = weights_root or CFG_WEIGHTS_ROOT
+        self.input_size = input_size
 
         _, self.transform = get_data_transforms()
 
@@ -102,11 +103,12 @@ class FusionHierarchicalPredictor:
     """
     融合预测器（头骨+牙齿）
     """
-    def __init__(self, model_name='efficientnet_b7', features_root=None, weights_root=None, device='cuda:0'):
+    def __init__(self, model_name='efficientnet_b7', features_root=None, weights_root=None, input_size=600, device='cuda:0'):
         self.model_name = model_name
         self.device = torch.device(device if torch.cuda.is_available() else "cpu")
         self.features_root = features_root or CFG_FEATURES_ROOT
         self.weights_root = weights_root or CFG_WEIGHTS_ROOT
+        self.input_size = input_size
         _, self.transform = get_data_transforms()
 
         self.genus_resources = self._load_fusion_resources('genus')

@@ -4,20 +4,13 @@ import torch
 from torch.utils.data import DataLoader
 from torch import nn
 from torch.utils import tensorboard
-import sys
+from datetime import datetime
 import argparse
-from config import DATASET_ROOT, WEIGHTS_ROOT   # 从配置导入根路径
-
-sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
+from config import DATASET_ROOT, WEIGHTS_ROOT   
 from utils.data_utils import load_genus_dataset, load_species_dataset
 from utils.model_utils import build_model
 from utils.train_utils import train_model
-
-# ======= 参数区 (固定参数/超参数) =======
-LEARNING_RATE = 0.01
-STEP_SIZE = 10
-PATIENCE = 50
-# =======================================
+  
 
 # 常见 EfficientNet 模型及其标准输入分辨率
 MODEL_RESOLUTIONS = {
@@ -41,11 +34,15 @@ if __name__ == "__main__":
     # --- 模型与分辨率控制 ---
     parser.add_argument('--model_name', type=str, default='efficientnet_b7', choices=list(MODEL_RESOLUTIONS.keys()))
     parser.add_argument('--input_size', type=int, default=None)
-    # --- 训练控制 ---
+    # --- 计算资源与数据加载 ---
     parser.add_argument('--num_workers', type=int, default=4)
     parser.add_argument('--batch_size', type=int, default=4)
-    parser.add_argument('--epochs', type=int, default=100)
     parser.add_argument('--device', type=str, default='cuda:0')
+    # --- 训练控制 ---
+    parser.add_argument('--learning_rate', type=float, default=0.01)
+    parser.add_argument('--epochs', type=int, default=100)
+    parser.add_argument('--step_size', type=int, default=10)
+    parser.add_argument('--patience', type=int, default=20)
     args = parser.parse_args()
 
     # 智能推断输入分辨率
@@ -90,22 +87,29 @@ if __name__ == "__main__":
     print(f"测试集总样本数: {len(test_data)}")
     print("=" * 40)
 
+    print(f"保存类别信息到: {os.path.join(SAVE_DIR, 'classes.txt')}")
+    with open(os.path.join(SAVE_DIR, 'classes.txt'), 'w', encoding='utf-8') as f:
+        for c in train_data.classes:
+            f.write(f"{c}\n")
+
     DEVICE = args.device if torch.cuda.is_available() else 'cpu'
     # 创建模型
     model = build_model(args.model_name, num_classes=len(train_data.classes), use_pretrained=True).to(DEVICE)
 
     # 优化器、损失、调度器
     criterion = nn.CrossEntropyLoss()
-    optimizer = torch.optim.SGD(model.parameters(), lr=LEARNING_RATE, momentum=0.9)
-    scheduler = torch.optim.lr_scheduler.StepLR(optimizer, step_size=STEP_SIZE, gamma=0.8)
+    optimizer = torch.optim.SGD(model.parameters(), lr=args.learning_rate, momentum=0.9)
+    scheduler = torch.optim.lr_scheduler.StepLR(optimizer, step_size=args.step_size, gamma=0.8)
 
     # TensorBoard
-    writer = tensorboard.SummaryWriter(os.path.join(SAVE_DIR, 'logs', args.model_name))
+    timestamp = datetime.now().strftime('%b%d_%H-%M-%S')
+    log_dir = os.path.join(SAVE_DIR, 'logs', args.model_name, timestamp)
+    writer = tensorboard.SummaryWriter(log_dir)
 
     # 训练
     train_model(model, train_loader, test_loader, criterion, optimizer, scheduler,
                 device=DEVICE, num_epochs=args.epochs, save_dir=SAVE_DIR,
-                class_names=train_data.classes, patience=PATIENCE, writer=writer)
+                patience=args.patience, writer=writer)
 
     writer.close()
     print("训练完成！")

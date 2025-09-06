@@ -11,11 +11,13 @@ class EarlyStopping:
         self.counter = 0
         self.best_score = None
         self.early_stop = False
+        self.best_epoch = 0  # <--- 新增：记录最佳轮次
 
-    def __call__(self, acc, model, save_path):
+    def __call__(self, acc, epoch, model, save_path):
         score = acc
         if self.best_score is None:
             self.best_score = score
+            self.best_epoch = epoch  # <--- 记录最佳轮次
             self.save_checkpoint(model, save_path)
         elif score <= self.best_score:
             self.counter += 1
@@ -25,17 +27,18 @@ class EarlyStopping:
                 self.early_stop = True
         else:
             self.best_score = score
+            self.best_epoch = epoch  # <--- 更新最佳轮次
             self.save_checkpoint(model, save_path)
             self.counter = 0
 
     def save_checkpoint(self, model, save_path):
         torch.save(model.state_dict(), os.path.join(save_path, 'best_network.pth'))
         if self.verbose:
-            print(f"✓ 权重已更新: {save_path}/best_network.pth")
+            print(f"权重已更新: {save_path}/best_network.pth")
 
 
 def train_model(model, train_loader, test_loader, criterion, optimizer, scheduler,
-                device, num_epochs, save_dir, class_names, patience=20, writer=None):
+                device, num_epochs, save_dir, patience=20, writer=None):
 
     # 如果是 CUDA，用 GradScaler 和 autocast；否则用普通 nullcontext()
     use_cuda = 'cuda' in device and torch.cuda.is_available()
@@ -101,12 +104,28 @@ def train_model(model, train_loader, test_loader, criterion, optimizer, schedule
             writer.add_scalar("LR", optimizer.param_groups[0]['lr'], epoch)
 
         # ===== 早停判断 =====
-        stopper(val_acc, model, save_dir)
+        stopper(val_acc, epoch + 1, model, save_dir)
         if stopper.early_stop:
-            print("✋ 提前停止训练")
+            print("提前停止训练")
             break
 
-    # 保存类别标签
-    with open(os.path.join(save_dir, 'classes.txt'), 'w') as f:
-        for c in class_names:
-            f.write(f"{c}\n")
+    best_acc = stopper.best_score if stopper.best_score is not None else 0.0
+    best_epoch = stopper.best_epoch
+
+    summary_file_path = os.path.join(save_dir, 'best_acc.txt')
+    try:
+        with open(summary_file_path, 'w', encoding='utf-8') as f:
+            f.write(f"Best Validation Accuracy: {best_acc:.4f}\n")
+            f.write(f"Best Epoch: {best_epoch}\n")
+    except Exception as e:
+        print(f"错误：无法将总结信息写入文件 {summary_file_path}。原因: {e}")
+
+    summary_message = (
+        f"{'='*50}\n"
+        f"最优模型已保存至: {save_dir}/best_network.pth\n"
+        f"总结信息已写入: {summary_file_path}\n"
+        f"最优轮次 (Best Epoch): {best_epoch}\n"
+        f"最高验证准确率 (Best Val Acc): {best_acc:.4f}\n"
+        f"{'='*50}"
+    )
+    print(summary_message)

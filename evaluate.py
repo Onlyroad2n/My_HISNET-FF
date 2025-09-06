@@ -57,7 +57,8 @@ def run_evaluation(args):
         try:
             predictor = FusionHierarchicalPredictor(model_name=args.model_name,
                                                     features_root=features_root,
-                                                    weights_root=weights_root)
+                                                    weights_root=weights_root,
+                                                    input_size=args.input_size)
         except FileNotFoundError as e:
             print(f"错误: {e}")
             return
@@ -89,7 +90,8 @@ def run_evaluation(args):
             predictor = HierarchicalPredictor(model_name=args.model_name,
                                               data_type=args.data_type,
                                               dataset_name=args.dataset_name,
-                                              weights_root=weights_root)
+                                              weights_root=weights_root,
+                                              input_size=args.input_size)
         except FileNotFoundError as e:
             print(f"错误: {e}")
             return
@@ -133,9 +135,11 @@ if __name__ == '__main__':
     parser.add_argument('--dataset_name', type=str, required=False, help='数据集目录名（如 2genus_4species）')
     parser.add_argument('--data_type', type=str, choices=['head', 'teeth'], help='单模态模式需要的数据类型')
     parser.add_argument('--model_name', type=str, default='efficientnet_b7', help='模型架构')
+    parser.add_argument('--input_size', type=int, default=600, help='输入图像的大小')
     parser.add_argument('--dataset_root', type=str, default=None, help='(可选) 覆盖 config.py 中 DATASET_ROOT')
     parser.add_argument('--weights_root', type=str, default=None, help='(可选) 覆盖 config.py 中 WEIGHTS_ROOT')
     parser.add_argument('--features_root', type=str, default=None, help='(可选) 覆盖 config.py 中 FEATURES_ROOT')
+
 
     args = parser.parse_args()
     run_evaluation(args)

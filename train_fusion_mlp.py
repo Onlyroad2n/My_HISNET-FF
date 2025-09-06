@@ -63,7 +63,6 @@ def main(args):
         print("请确保您已经为 'head' 和 'teeth' 两种数据类型都成功运行了 extract_features.py。")
         return
         
-    # ... 后续代码完全不变 ...
     print(f"融合后训练特征维度: {x_train.shape}")
     print(f"融合后测试特征维度: {x_test.shape}")
     num_classes = len(np.unique(y_train))
@@ -103,11 +102,11 @@ def main(args):
         print(f"Epoch {epoch+1}: Train Loss: {avg_train_loss:.4f}, Train Acc: {train_acc:.4f} | Val Acc: {test_acc:.4f}")
         stopper(test_acc, model, save_weight_dir)
         if stopper.early_stop:
-            print("✋ 验证集准确率已停止提升，提前停止训练。")
+            print("验证集准确率已停止提升，提前停止训练。")
             break
         if stopper.best_score:
             best_acc = stopper.best_score
-    print(f"✅ 训练完毕，最佳测试集准确率: {best_acc:.4f}")
+    print(f"训练完毕，最佳测试集准确率: {best_acc:.4f}")
     # 将早停保存的 best_network.pth 重命名
     best_model_path_temp = os.path.join(save_weight_dir, 'best_network.pth')
     if os.path.exists(best_model_path_temp):
