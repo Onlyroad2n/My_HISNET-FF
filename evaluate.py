@@ -5,8 +5,6 @@ import numpy as np
 from sklearn.metrics import classification_report, confusion_matrix, accuracy_score
 import pandas as pd
 import os
-
-# 导入两个预测器引擎
 from utils.predictor_utils import HierarchicalPredictor, FusionHierarchicalPredictor
 from config import DATASET_ROOT as CFG_DATASET_ROOT, WEIGHTS_ROOT as CFG_WEIGHTS_ROOT, FEATURES_ROOT as CFG_FEATURES_ROOT
 
@@ -43,7 +41,7 @@ def run_evaluation(args):
     features_root = args.features_root or CFG_FEATURES_ROOT
 
     if args.fusion:
-        print("\n>> 模式: 融合层级评估")
+        print(">> 模式: 融合层级评估")
         if not args.dataset_name:
             parser.error("--fusion 模式需要提供 --dataset_name（测试集目录名）")
 
@@ -116,7 +114,7 @@ def run_evaluation(args):
         print("没有可供评估的样本。")
         return
 
-    print("\n" + "="*20 + " 评估结果 " + "="*20)
+    print("" + "="*20 + " 评估结果 " + "="*20)
     accuracy = accuracy_score(y_true, y_pred)
     print(f"Overall Accuracy: {accuracy:.4f} ({accuracy*100:.2f}%)")
 

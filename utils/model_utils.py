@@ -1,4 +1,3 @@
-# utils/model_utils.py
 import torchvision.models as models
 from torchvision.models import get_model_weights
 import torch.nn as nn

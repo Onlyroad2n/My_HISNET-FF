@@ -2,7 +2,7 @@ import os
 import torch
 from tqdm import tqdm
 import torch.cuda.amp as amp
-from contextlib import nullcontext  # 用于 CPU 下的占位上下文管理器
+from contextlib import nullcontext  
 
 class EarlyStopping:
     def __init__(self, patience=10, verbose=False):
@@ -11,13 +11,13 @@ class EarlyStopping:
         self.counter = 0
         self.best_score = None
         self.early_stop = False
-        self.best_epoch = 0  # <--- 新增：记录最佳轮次
+        self.best_epoch = 0  
 
     def __call__(self, acc, epoch, model, save_path):
         score = acc
         if self.best_score is None:
             self.best_score = score
-            self.best_epoch = epoch  # <--- 记录最佳轮次
+            self.best_epoch = epoch 
             self.save_checkpoint(model, save_path)
         elif score <= self.best_score:
             self.counter += 1
@@ -27,7 +27,7 @@ class EarlyStopping:
                 self.early_stop = True
         else:
             self.best_score = score
-            self.best_epoch = epoch  # <--- 更新最佳轮次
+            self.best_epoch = epoch
             self.save_checkpoint(model, save_path)
             self.counter = 0
 
@@ -40,7 +40,6 @@ class EarlyStopping:
 def train_model(model, train_loader, test_loader, criterion, optimizer, scheduler,
                 device, num_epochs, save_dir, patience=20, writer=None):
 
-    # 如果是 CUDA，用 GradScaler 和 autocast；否则用普通 nullcontext()
     use_cuda = 'cuda' in device and torch.cuda.is_available()
     scaler = amp.GradScaler() if use_cuda else None
     autocast_context = amp.autocast() if use_cuda else nullcontext()
@@ -48,7 +47,7 @@ def train_model(model, train_loader, test_loader, criterion, optimizer, schedule
     stopper = EarlyStopping(patience=patience, verbose=True)
 
     for epoch in range(num_epochs):
-        # ===== 训练阶段 =====
+        # 训练阶段 
         model.train()
         train_loss, train_correct = 0.0, 0
         with tqdm(train_loader, desc=f"Epoch {epoch+1}/{num_epochs} - Train") as tbar:
@@ -74,7 +73,7 @@ def train_model(model, train_loader, test_loader, criterion, optimizer, schedule
         train_acc = train_correct / len(train_loader.dataset)
         avg_train_loss = train_loss / len(train_loader.dataset)
 
-        # ===== 验证阶段 =====
+        # 验证阶段
         model.eval()
         val_loss, val_correct = 0.0, 0
         with torch.no_grad():
@@ -91,7 +90,6 @@ def train_model(model, train_loader, test_loader, criterion, optimizer, schedule
 
         scheduler.step()
 
-        # ===== 日志输出 =====
         print(f"[{epoch+1}/{num_epochs}] "
               f"Train Loss: {avg_train_loss:.4f}, Acc: {train_acc:.4f} | "
               f"Val Loss: {avg_val_loss:.4f}, Acc: {val_acc:.4f}")
@@ -103,7 +101,6 @@ def train_model(model, train_loader, test_loader, criterion, optimizer, schedule
             writer.add_scalar("Acc/val", val_acc, epoch)
             writer.add_scalar("LR", optimizer.param_groups[0]['lr'], epoch)
 
-        # ===== 早停判断 =====
         stopper(val_acc, epoch + 1, model, save_dir)
         if stopper.early_stop:
             print("提前停止训练")

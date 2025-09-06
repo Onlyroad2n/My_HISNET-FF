@@ -1,23 +1,17 @@
-# train_fusion_mlp.py
 import os
 import torch
 from torch.utils.data import DataLoader
 from torch import nn
 from tqdm import tqdm
-import sys
 import argparse
 import numpy as np
-import shutil # 引入shutil用于文件复制
-
-sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
+import shutil
 from utils.fusion_utils import fuse_features, FeatureDataset
 from utils.fusion_models import SimpleMLP
 from utils.train_utils import EarlyStopping
 from config import FEATURES_ROOT, WEIGHTS_ROOT
 
 def main(args):
-    """主执行函数"""
-
     if args.mode == 'genus':
         teeth_dir = os.path.join(FEATURES_ROOT, 'genus', 'teeth')
         head_dir  = os.path.join(FEATURES_ROOT, 'genus', 'head')
@@ -39,17 +33,14 @@ def main(args):
     print(f"融合模型将保存至: {save_weight_dir}")
     os.makedirs(save_weight_dir, exist_ok=True)
 
-    # ==== (新增) 自动保存类别文件 ====
     try:
         dest_class_file = os.path.join(save_weight_dir, 'classes.txt')
-        # 从原始的单模态训练结果中复制类别文件到融合模型目录
         shutil.copyfile(source_class_file, dest_class_file)
-        print(f"✓ 类别文件已成功保存至: {dest_class_file}")
+        print(f"类别文件已成功保存至: {dest_class_file}")
     except FileNotFoundError:
         print(f"\n错误: 未能找到源类别文件: {source_class_file}")
         print("请确保您已经为 'head' 数据类型成功运行了 train.py。")
         return
-    # ====================================
 
     try:
         x_train, y_train, x_test, y_test = fuse_features(
@@ -75,11 +66,11 @@ def main(args):
     criterion = nn.CrossEntropyLoss()
     optimizer = torch.optim.Adam(model.parameters(), lr=args.lr)
     stopper = EarlyStopping(patience=args.patience, verbose=True)
-    best_acc = 0
+
     for epoch in range(args.epochs):
         model.train()
         total_loss, correct = 0.0, 0
-        pbar = tqdm(train_loader, desc=f"Epoch {epoch+1}/{args.epochs} [训练]")
+        pbar = tqdm(train_loader, desc=f"Epoch {epoch+1}/{args.epochs}")
         for x, y in pbar:
             x, y = x.to(args.device), y.to(args.device)
             optimizer.zero_grad()
@@ -100,22 +91,42 @@ def main(args):
                 correct_test += (outputs.argmax(1) == y).sum().item()
         test_acc = correct_test / len(test_loader.dataset)
         print(f"Epoch {epoch+1}: Train Loss: {avg_train_loss:.4f}, Train Acc: {train_acc:.4f} | Val Acc: {test_acc:.4f}")
-        stopper(test_acc, model, save_weight_dir)
+        stopper(test_acc, epoch + 1, model, save_weight_dir)
         if stopper.early_stop:
             print("验证集准确率已停止提升，提前停止训练。")
             break
-        if stopper.best_score:
-            best_acc = stopper.best_score
-    print(f"训练完毕，最佳测试集准确率: {best_acc:.4f}")
-    # 将早停保存的 best_network.pth 重命名
-    best_model_path_temp = os.path.join(save_weight_dir, 'best_network.pth')
-    if os.path.exists(best_model_path_temp):
-        os.rename(best_model_path_temp, os.path.join(save_weight_dir, 'best_fusion_model.pth'))
+    
+    best_epoch = stopper.best_epoch
+    best_acc = stopper.best_score
+    final_model_name = 'best_fusion_model.pth'
+    temp_model_path = os.path.join(save_weight_dir, 'best_network.pth')
+    final_model_path = os.path.join(save_weight_dir, final_model_name)
+    if os.path.exists(temp_model_path):
+        os.rename(temp_model_path, final_model_path)
+
+    summary_file_path = os.path.join(save_weight_dir, 'best_acc.txt')
+    try:
+        with open(summary_file_path, 'w', encoding='utf-8') as f:
+            f.write(f"Best Validation Accuracy: {best_acc:.4f}\n")
+            f.write(f"Best Epoch: {best_epoch}\n")
+    except Exception as e:
+        print(f"错误：无法将总结信息写入文件 {summary_file_path}。原因: {e}")
+
+    summary_message = (
+        f"{'='*50}\n"
+        f"训练完毕!\n"
+        f"最优模型已保存至: {final_model_path}\n"
+        f"总结信息已写入: {summary_file_path}\n"
+        f"{'-'*50}\n"
+        f"最优轮次 (Best Epoch): {best_epoch}\n"
+        f"最高验证准确率 (Best Val Acc): {best_acc:.4f}\n"
+        f"{'='*50}"
+    )
+    print(summary_message)
 
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="训练一个MLP模型来融合深度特征。")
-    # ... 命令行参数部分不变 ...
     parser.add_argument('--mode', type=str, required=True, choices=['genus', 'species'], help='设置模式: "genus" 或 "species".')
     parser.add_argument('--target_genus', type=str, default=None, help='当模式为 "species" 时，需要指定目标属。')
     parser.add_argument('--teeth_ratio', type=float, default=1.0, help='牙齿特征的归一化最大值。')
@@ -127,6 +138,5 @@ if __name__ == "__main__":
     parser.add_argument('--hidden_dim', type=int, default=1024, help='MLP隐藏层维度。')
     parser.add_argument('--dropout', type=float, default=0.5, help='Dropout比率。')
     parser.add_argument('--device', type=str, default='cuda:0', help='计算设备。')
-
     args = parser.parse_args()
     main(args)

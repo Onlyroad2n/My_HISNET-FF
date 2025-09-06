@@ -1,5 +1,3 @@
-# config.py
-import os
 # 数据集根目录
 DATASET_ROOT = "./datasets"
 # 权重保存根目录

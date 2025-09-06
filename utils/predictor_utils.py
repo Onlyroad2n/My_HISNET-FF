@@ -1,19 +1,13 @@
-# utils/predictor_utils.py
 import os
 import torch
 from PIL import Image
-from torchvision import transforms
 import joblib
 import numpy as np
 import torch.nn as nn
-
 from .data_utils import get_data_transforms
 from .model_utils import build_model
 from .fusion_models import SimpleMLP
-
-# 导入配置
 from config import WEIGHTS_ROOT as CFG_WEIGHTS_ROOT, FEATURES_ROOT as CFG_FEATURES_ROOT
-
 
 class HierarchicalPredictor:
     """
@@ -31,10 +25,10 @@ class HierarchicalPredictor:
         _, self.transform = get_data_transforms()
 
         self.genus_model, self.genus_classes = self._load_genus_model()
-        print(f"✓ Genus model loaded: {self.genus_classes}")
+        print(f" Genus model loaded: {self.genus_classes}")
 
         self.species_models = self._load_all_species_models()
-        print(f"✓ Species models loaded for genera: {list(self.species_models.keys())}")
+        print(f"Species models loaded for genera: {list(self.species_models.keys())}")
 
     def _load_model(self, model_path, class_path):
         if not os.path.exists(model_path) or not os.path.exists(class_path):

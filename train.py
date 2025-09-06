@@ -1,4 +1,3 @@
-# train.py
 import os
 import torch
 from torch.utils.data import DataLoader
@@ -29,7 +28,7 @@ if __name__ == "__main__":
     # --- 模式与数据控制 ---
     parser.add_argument('--mode', type=str, required=True, choices=['genus', 'species'])
     parser.add_argument('--data_type', type=str, default='head', choices=['head', 'teeth'])
-    parser.add_argument('--dataset_name', type=str, required=True, help='Specify dataset folder name under DATASET_ROOT')  # ★ 新增
+    parser.add_argument('--dataset_name', type=str, required=True, help='Specify dataset folder name under DATASET_ROOT')
     parser.add_argument('--target_genus', type=str, default=None)
     # --- 模型与分辨率控制 ---
     parser.add_argument('--model_name', type=str, default='efficientnet_b7', choices=list(MODEL_RESOLUTIONS.keys()))
@@ -45,7 +44,7 @@ if __name__ == "__main__":
     parser.add_argument('--patience', type=int, default=20)
     args = parser.parse_args()
 
-    # 智能推断输入分辨率
+
     if args.input_size is None:
         input_size = MODEL_RESOLUTIONS.get(args.model_name)
         print(f"提示: 未指定 --input_size, 根据模型 '{args.model_name}' 自动设置为 {input_size}x{input_size}。")
@@ -53,10 +52,7 @@ if __name__ == "__main__":
         input_size = args.input_size
         print(f"提示: 使用用户指定的分辨率 {input_size}x{input_size}。")
 
-    # ===== 配置路径 =====
-    # 数据路径
     dataset_path = os.path.join(DATASET_ROOT, args.data_type, args.dataset_name)
-    # 权重保存到 pretrain 文件夹
     save_root = os.path.join(WEIGHTS_ROOT, 'pretrain')
 
     if args.mode == 'genus':
@@ -75,11 +71,9 @@ if __name__ == "__main__":
         os.makedirs(SAVE_DIR, exist_ok=True)
         train_data, test_data = load_species_dataset(dataset_path, args.target_genus, input_size)
 
-    # ===== 数据加载 =====
     train_loader = DataLoader(train_data, batch_size=args.batch_size, shuffle=True, num_workers=args.num_workers)
     test_loader = DataLoader(test_data, batch_size=args.batch_size, shuffle=False, num_workers=args.num_workers)
 
-    # 类别信息输出
     print("=" * 40)
     print(f"类别数量: {len(train_data.classes)}")
     print(f"类别映射: {train_data.class_to_idx}")

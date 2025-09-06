@@ -1,6 +1,6 @@
-# utils/data_utils.py
 from torchvision import datasets, transforms
 import os
+
 def get_data_transforms(input_size=600):
     train_transform = transforms.Compose([
         transforms.Resize((input_size, input_size)),

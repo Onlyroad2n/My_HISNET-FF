@@ -1,4 +1,3 @@
-# utils/fusion_models.py
 import torch.nn as nn
 
 class SimpleMLP(nn.Module):

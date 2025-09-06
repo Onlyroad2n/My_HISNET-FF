@@ -4,15 +4,9 @@ import torch
 from torch import nn
 from torch.utils.data import DataLoader, Dataset
 import argparse
-import sys
 from tqdm import tqdm
 import numpy as np
-
-sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
-
-# 从配置文件引入路径
 from config import DATASET_ROOT, WEIGHTS_ROOT, FEATURES_ROOT, DEFAULT_WEIGHT_FILE
-
 from utils.data_utils import load_genus_dataset, load_species_dataset
 from utils.model_utils import build_model
 
@@ -41,11 +35,11 @@ def process_and_save_split(model: nn.Module, dataset: Dataset, split_name: str,
     np.save(feature_save_path, extracted_features)
     np.save(label_save_path, labels)
 
-    print(f"✓ '{split_name}' 特征已保存到: {feature_save_path}")
-    print(f"✓ 标签已保存到: {label_save_path}")
+    print(f"'{split_name}' 特征已保存到: {feature_save_path}")
+    print(f"标签已保存到: {label_save_path}")
 
 def main(args):
-    # ====== 1. 构建特征保存路径 ======
+    # 构建特征保存路径 
     if args.mode == 'genus':
         target_output_dir = os.path.join(FEATURES_ROOT, 'genus', args.data_type)
     elif args.mode == 'species':
@@ -55,7 +49,6 @@ def main(args):
     os.makedirs(target_output_dir, exist_ok=True)
     print(f"特征将保存到: {target_output_dir}")
 
-    # ====== 2. 数据路径（与训练一致）======
     dataset_path = os.path.join(DATASET_ROOT, args.data_type, args.dataset_name)
     print(f"加载数据集: {dataset_path}")
 
@@ -64,7 +57,6 @@ def main(args):
     elif args.mode == 'species':
         train_data, test_data = load_species_dataset(dataset_path, args.target_genus, args.input_size)
 
-    # 如果用户没有传 --weights_path，则使用默认路径
     if args.weights_path:
         weights_path = args.weights_path
     else:
@@ -75,7 +67,7 @@ def main(args):
             weights_path = os.path.join(WEIGHTS_ROOT, "pretrain", "species", args.target_genus, args.data_type, DEFAULT_WEIGHT_FILE)
     print(f"使用权重文件: {weights_path}")
 
-    # ====== 4. 加载模型并改为特征提取模式 ======
+    # 加载模型
     num_classes = len(train_data.classes)
     model = build_model(args.model_name, num_classes, use_pretrained=False).to(args.device)
     model.load_state_dict(torch.load(weights_path, map_location=args.device))
@@ -87,7 +79,7 @@ def main(args):
     else:
         raise NotImplementedError(f"特征提取逻辑未对 {args.model_name} 实现")
 
-    # ====== 5. 提取并保存特征 ======
+    #提取并保存特征
     process_and_save_split(model, train_data, 'train', target_output_dir, args.batch_size, args.device)
     process_and_save_split(model, test_data, 'test', target_output_dir, args.batch_size, args.device)
 
