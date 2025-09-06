@@ -2,6 +2,7 @@ import os
 import torch
 from tqdm import tqdm
 import torch.cuda.amp as amp
+from contextlib import nullcontext  # 用于 CPU 下的占位上下文管理器
 
 class EarlyStopping:
     def __init__(self, patience=10, verbose=False):
@@ -32,10 +33,15 @@ class EarlyStopping:
         if self.verbose:
             print(f"✓ 权重已更新: {save_path}/best_network.pth")
 
+
 def train_model(model, train_loader, test_loader, criterion, optimizer, scheduler,
                 device, num_epochs, save_dir, class_names, patience=20, writer=None):
 
-    scaler = amp.GradScaler()  # 混合精度梯度缩放
+    # 如果是 CUDA，用 GradScaler 和 autocast；否则用普通 nullcontext()
+    use_cuda = 'cuda' in device and torch.cuda.is_available()
+    scaler = amp.GradScaler() if use_cuda else None
+    autocast_context = amp.autocast() if use_cuda else nullcontext()
+
     stopper = EarlyStopping(patience=patience, verbose=True)
 
     for epoch in range(num_epochs):
@@ -47,13 +53,17 @@ def train_model(model, train_loader, test_loader, criterion, optimizer, schedule
                 imgs, labels = imgs.to(device), labels.to(device)
                 optimizer.zero_grad()
 
-                with amp.autocast():
+                with autocast_context:
                     outputs = model(imgs)
                     loss = criterion(outputs, labels)
 
-                scaler.scale(loss).backward()
-                scaler.step(optimizer)
-                scaler.update()
+                if scaler:  # CUDA 混合精度
+                    scaler.scale(loss).backward()
+                    scaler.step(optimizer)
+                    scaler.update()
+                else:       # CPU 或没有混合精度
+                    loss.backward()
+                    optimizer.step()
 
                 train_loss += loss.item() * labels.size(0)
                 train_correct += (outputs.argmax(1) == labels).sum().item()
@@ -67,7 +77,7 @@ def train_model(model, train_loader, test_loader, criterion, optimizer, schedule
         with torch.no_grad():
             for imgs, labels in test_loader:
                 imgs, labels = imgs.to(device), labels.to(device)
-                with amp.autocast():
+                with autocast_context:
                     outputs = model(imgs)
                     loss = criterion(outputs, labels)
                 val_loss += loss.item() * labels.size(0)

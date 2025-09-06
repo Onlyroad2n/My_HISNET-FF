@@ -13,27 +13,25 @@ sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
 from utils.fusion_utils import fuse_features, FeatureDataset
 from utils.fusion_models import SimpleMLP
 from utils.train_utils import EarlyStopping
+from config import FEATURES_ROOT, WEIGHTS_ROOT
 
 def main(args):
     """主执行函数"""
-    
-    feature_root = './features'
-    weights_root = './weights_fusion'
 
     if args.mode == 'genus':
-        teeth_dir = os.path.join(feature_root, 'genus', 'teeth')
-        head_dir  = os.path.join(feature_root, 'genus', 'head')
-        save_weight_dir = os.path.join(weights_root, 'genus')
-        # 定义原始类别文件的来源路径
-        source_class_file = './weights/genus/head/classes.txt' 
+        teeth_dir = os.path.join(FEATURES_ROOT, 'genus', 'teeth')
+        head_dir  = os.path.join(FEATURES_ROOT, 'genus', 'head')
+        save_weight_dir = os.path.join(WEIGHTS_ROOT, 'fusion', 'genus')
+        source_class_file = os.path.join(WEIGHTS_ROOT, 'pretrain', 'genus', 'head', 'classes.txt')
+
     elif args.mode == 'species':
         if not args.target_genus:
             parser.error("--mode 'species' 需要指定 --target_genus。")
-        teeth_dir = os.path.join(feature_root, 'species', args.target_genus, 'teeth')
-        head_dir  = os.path.join(feature_root, 'species', args.target_genus, 'head')
-        save_weight_dir = os.path.join(weights_root, 'species', args.target_genus)
-        # 定义原始类别文件的来源路径
-        source_class_file = f'./weights/species/{args.target_genus}/head/classes.txt'
+        teeth_dir = os.path.join(FEATURES_ROOT, 'species', args.target_genus, 'teeth')
+        head_dir  = os.path.join(FEATURES_ROOT, 'species', args.target_genus, 'head')
+        save_weight_dir = os.path.join(WEIGHTS_ROOT, 'fusion', 'species', args.target_genus)
+        source_class_file = os.path.join(WEIGHTS_ROOT, 'pretrain', 'species', args.target_genus, 'head', 'classes.txt')
+
     
     print(f"模式: '{args.mode}', 目标属: '{args.target_genus or 'N/A'}'")
     print(f"读取 Head 特征自: {head_dir}")

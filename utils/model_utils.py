@@ -1,5 +1,6 @@
 # utils/model_utils.py
 import torchvision.models as models
+from torchvision.models import get_model_weights
 import torch.nn as nn
 
 def build_model(model_name, num_classes, use_pretrained=True):
@@ -7,7 +8,10 @@ def build_model(model_name, num_classes, use_pretrained=True):
     构建骨干网络并替换分类头.
     使用现代 torchvision API (weights=...).
     """
-    weights = "DEFAULT" if use_pretrained else None
+    if use_pretrained:
+        weights = get_model_weights(model_name).DEFAULT
+    else:
+        weights = None
     
     # 动态获取模型构造函数
     try:
