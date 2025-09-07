@@ -1,8 +1,11 @@
-# 数据集根目录
+# Root directory for all datasets
 DATASET_ROOT = "./datasets"
-# 权重保存根目录
+
+# Root directory for saving model weights
 WEIGHTS_ROOT = "./weights"
-# 特征保存根目录
+
+# Root directory for saving extracted features
 FEATURES_ROOT = "./features"
-# 默认的最佳权重文件名
+
+# Default filename for the best model weights
 DEFAULT_WEIGHT_FILE = "best_network.pth"

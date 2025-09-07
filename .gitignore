@@ -1,7 +1,6 @@
 /datasets
 /weights
 /features
-/backup
 
 *.pkl
 *.pyc

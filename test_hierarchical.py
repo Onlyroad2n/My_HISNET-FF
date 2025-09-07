@@ -1,30 +1,32 @@
 import argparse
-from pathlib import Path
-from tqdm import tqdm
-import numpy as np
-from sklearn.metrics import classification_report, confusion_matrix, accuracy_score
-import pandas as pd
 import os
-from utils.predictor_utils import HierarchicalPredictor, FusionHierarchicalPredictor
-from config import DATASET_ROOT as CFG_DATASET_ROOT, WEIGHTS_ROOT as CFG_WEIGHTS_ROOT, FEATURES_ROOT as CFG_FEATURES_ROOT
+from pathlib import Path
 
-def find_image_pairs(cranium_root, teeth_root):
-    """
-    在两个目录中寻找文件名相同的成对图片
-    """
+import numpy as np
+import pandas as pd
+from sklearn.metrics import accuracy_score, classification_report, confusion_matrix
+from tqdm import tqdm
+
+from config import (DATASET_ROOT as CFG_DATASET_ROOT,
+                    FEATURES_ROOT as CFG_FEATURES_ROOT,
+                    WEIGHTS_ROOT as CFG_WEIGHTS_ROOT)
+from utils.predictor_utils import (FusionHierarchicalPredictor,
+                                     HierarchicalPredictor)
+
+
+def find_image_pairs(cranium_root: str, teeth_root: str):
+    """Finds pairs of images with the same relative path in two root directories."""
     cranium_root, teeth_root = Path(cranium_root), Path(teeth_root)
     image_pairs = []
     image_extensions = ['*.jpg', '*.JPG', '*.jpeg', '*.JPEG', '*.png', '*.PNG']
 
-    cranium_images = []
-    for ext in image_extensions:
-        cranium_images.extend(cranium_root.rglob(ext))
+    cranium_images = [p for ext in image_extensions for p in cranium_root.rglob(ext)]
 
     if not cranium_images:
-        print("警告: 在头骨测试目录中未找到任何支持的图片文件。")
+        print("Warning: No supported image files found in the cranium test directory.")
         return []
 
-    for cranium_path in tqdm(cranium_images, desc="正在匹配成对图片"):
+    for cranium_path in tqdm(cranium_images, desc="Matching image pairs"):
         relative_path = cranium_path.relative_to(cranium_root)
         teeth_path = teeth_root / relative_path
         if teeth_path.exists():
@@ -32,89 +34,86 @@ def find_image_pairs(cranium_root, teeth_root):
 
     return image_pairs
 
+
 def run_evaluation(args):
-    """主评估函数，支持单模态与融合模式"""
+    """Main evaluation function, supporting both single-modality and fusion modes."""
     y_true, y_pred = [], []
 
+    # 1. Set up configuration paths, allowing overrides from command line
     dataset_root = args.dataset_root or CFG_DATASET_ROOT
     weights_root = args.weights_root or CFG_WEIGHTS_ROOT
     features_root = args.features_root or CFG_FEATURES_ROOT
 
+    # 2. Execute evaluation based on the selected mode (fusion or single)
     if args.fusion:
-        print(">> 模式: 融合层级评估")
+        print("\n>> Mode: Fusion-based Hierarchical Evaluation")
         if not args.dataset_name:
-            parser.error("--fusion 模式需要提供 --dataset_name（测试集目录名）")
+            parser.error("--fusion mode requires the --dataset_name argument.")
 
         cranium_test_dir = os.path.join(dataset_root, 'cranium', args.dataset_name, 'test')
         teeth_test_dir = os.path.join(dataset_root, 'teeth', args.dataset_name, 'test')
 
-        if not os.path.exists(cranium_test_dir) or not os.path.exists(teeth_test_dir):
-            print(f"错误: 未找到测试集目录\n Cranium: {cranium_test_dir}\n Teeth: {teeth_test_dir}")
+        if not os.path.isdir(cranium_test_dir) or not os.path.isdir(teeth_test_dir):
+            print(f"Error: Test set directory not found.\n Cranium path: {cranium_test_dir}\n Teeth path:   {teeth_test_dir}")
             return
 
         try:
             predictor = FusionHierarchicalPredictor(model_name=args.model_name,
-                                                    features_root=features_root,
                                                     weights_root=weights_root,
                                                     input_size=args.input_size)
         except FileNotFoundError as e:
-            print(f"错误: {e}")
+            print(f"Error initializing predictor: {e}\nPlease ensure all required models and scalers are trained and available.")
             return
 
         image_pairs = find_image_pairs(cranium_test_dir, teeth_test_dir)
         if not image_pairs:
-            print("错误: 未找到成对的头骨/牙齿测试图片。")
+            print("Error: No matching image pairs found for cranium/teeth evaluation.")
             return
 
-        for cranium_path, teeth_path in tqdm(image_pairs, desc="评估融合模型"):
+        for cranium_path, teeth_path in tqdm(image_pairs, desc="Evaluating fusion model"):
             true_label = Path(cranium_path).parent.name
             results = predictor.predict(cranium_path, teeth_path)
             y_true.append(true_label)
             y_pred.append(results['final_prediction'])
 
-    else:
-        print("\n>> 模式: 单模态层级评估")
-        if not args.dataset_name:
-            parser.error("--单模态 模式需要提供 --dataset_name")
-        if not args.data_type:
-            parser.error("--单模态 模式需要提供 --data_type")
+    else: # Single-modality mode
+        print("\n>> Mode: Single-Modality Hierarchical Evaluation")
+        if not args.dataset_name or not args.data_type:
+            parser.error("Single-modality mode requires both --dataset_name and --data_type.")
 
         test_dir = os.path.join(dataset_root, args.data_type, args.dataset_name, 'test')
-        if not os.path.exists(test_dir):
-            print(f"错误: 测试集路径不存在: {test_dir}")
+        if not os.path.isdir(test_dir):
+            print(f"Error: Test set path does not exist: {test_dir}")
             return
 
         try:
             predictor = HierarchicalPredictor(model_name=args.model_name,
                                               data_type=args.data_type,
-                                              dataset_name=args.dataset_name,
                                               weights_root=weights_root,
                                               input_size=args.input_size)
         except FileNotFoundError as e:
-            print(f"错误: {e}")
+            print(f"Error initializing predictor: {e}\nPlease ensure the required models are trained.")
             return
 
         image_extensions = ['*.jpg', '*.JPG', '*.jpeg', '*.JPEG', '*.png', '*.PNG']
-        image_paths = []
-        for ext in image_extensions:
-            image_paths.extend(Path(test_dir).rglob(ext))
+        image_paths = [p for ext in image_extensions for p in Path(test_dir).rglob(ext)]
 
         if not image_paths:
-            print(f"错误: 在 {test_dir} 中未找到有效图片。")
+            print(f"Error: No valid images found in {test_dir}.")
             return
 
-        for image_path in tqdm(image_paths, desc=f"评估 {args.data_type} 模型"):
+        for image_path in tqdm(image_paths, desc=f"Evaluating {args.data_type} model"):
             true_label = image_path.parent.name
             results = predictor.predict(str(image_path))
             y_true.append(true_label)
             y_pred.append(results['final_prediction'])
 
-    # 生成评估报告
+    # 3. Generate and display evaluation results
     if not y_true:
-        print("没有可供评估的样本。")
+        print("Evaluation could not be completed as no samples were processed.")
         return
 
-    print("" + "="*20 + " 评估结果 " + "="*20)
+    print("\n" + "="*20 + " Evaluation Results " + "="*20)
     accuracy = accuracy_score(y_true, y_pred)
     print(f"Overall Accuracy: {accuracy:.4f} ({accuracy*100:.2f}%)")
 
@@ -124,20 +123,31 @@ def run_evaluation(args):
 
     print("\nConfusion Matrix:")
     cm = confusion_matrix(y_true, y_pred, labels=all_classes)
-    print(pd.DataFrame(cm, index=all_classes, columns=all_classes))
-    print("="*55)
+    cm_df = pd.DataFrame(cm, index=all_classes, columns=all_classes)
+    print(cm_df)
+    print("="*58)
+
 
 if __name__ == '__main__':
-    parser = argparse.ArgumentParser(description='统一评估脚本，支持单模态和融合模式')
-    parser.add_argument('--fusion', action='store_true', help='使用融合评估模式')
-    parser.add_argument('--dataset_name', type=str, required=False, help='数据集目录名（如 2genus_4species）')
-    parser.add_argument('--data_type', type=str, choices=['cranium', 'teeth'], help='单模态模式需要的数据类型')
-    parser.add_argument('--model_name', type=str, default='efficientnet_b7', help='模型架构')
-    parser.add_argument('--input_size', type=int, default=600, help='输入图像的大小')
-    parser.add_argument('--dataset_root', type=str, default=None, help='(可选) 覆盖 config.py 中 DATASET_ROOT')
-    parser.add_argument('--weights_root', type=str, default=None, help='(可选) 覆盖 config.py 中 WEIGHTS_ROOT')
-    parser.add_argument('--features_root', type=str, default=None, help='(可选) 覆盖 config.py 中 FEATURES_ROOT')
-
+    parser = argparse.ArgumentParser(
+        description='Unified evaluation script for single-modality and fusion-based hierarchical models.'
+    )
+    parser.add_argument('--fusion', action='store_true', 
+                        help='Enable fusion-based evaluation mode using both cranium and teeth images.')
+    parser.add_argument('--dataset_name', type=str, required=True, 
+                        help='Name of the dataset directory to test on (e.g., 2genus_4species).')
+    parser.add_argument('--data_type', type=str, choices=['cranium', 'teeth'], 
+                        help='Data type, required for single-modality mode.')
+    parser.add_argument('--model_name', type=str, default='efficientnet_b7', 
+                        help='Model architecture name.')
+    parser.add_argument('--input_size', type=int, default=600, 
+                        help='Input image size/resolution.')
+    parser.add_argument('--dataset_root', type=str, default=None, 
+                        help='(Optional) Override DATASET_ROOT from config.py.')
+    parser.add_argument('--weights_root', type=str, default=None, 
+                        help='(Optional) Override WEIGHTS_ROOT from config.py.')
+    parser.add_argument('--features_root', type=str, default=None, 
+                        help='(Optional) Override FEATURES_ROOT from config.py for fusion mode.')
 
     args = parser.parse_args()
     run_evaluation(args)
