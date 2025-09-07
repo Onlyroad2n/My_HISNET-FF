@@ -1,8 +1,7 @@
-datasets
-weights
-features
-weights-b7
-weights_fusion
+/datasets
+/weights
+/features
+/backup
 
 *.pkl
 *.pyc

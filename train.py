@@ -27,7 +27,7 @@ if __name__ == "__main__":
     parser = argparse.ArgumentParser(description='Unified and configurable training script for image classification.')
     # --- 模式与数据控制 ---
     parser.add_argument('--mode', type=str, required=True, choices=['genus', 'species'])
-    parser.add_argument('--data_type', type=str, default='head', choices=['head', 'teeth'])
+    parser.add_argument('--data_type', type=str, default='cranium', choices=['cranium', 'teeth'])
     parser.add_argument('--dataset_name', type=str, required=True, help='Specify dataset folder name under DATASET_ROOT')
     parser.add_argument('--target_genus', type=str, default=None)
     # --- 模型与分辨率控制 ---

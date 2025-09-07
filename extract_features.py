@@ -89,7 +89,7 @@ if __name__ == '__main__':
     parser = argparse.ArgumentParser(description="从训练好的模型中自动提取特征并保存")
     parser.add_argument('--dataset_name', type=str, required=True, help='数据集目录名，例如 2genus_4species')
     parser.add_argument('--mode', type=str, required=True, choices=['genus', 'species'])
-    parser.add_argument('--data_type', type=str, required=True, choices=['head', 'teeth'])
+    parser.add_argument('--data_type', type=str, required=True, choices=['cranium', 'teeth'])
     parser.add_argument('--target_genus', type=str, default=None)
     parser.add_argument('--model_name', type=str, default='efficientnet_b7')
     parser.add_argument('--input_size', type=int, default=600)

@@ -14,10 +14,10 @@ def load_features_from_npy(feature_dir: str):
     
     return x_train, y_train, x_test, y_test
 
-def fuse_features(teeth_dir: str, head_dir: str, teeth_ratio=1.0, head_ratio=1.0, save_scaler_dir=None):
+def fuse_features(teeth_dir: str, cranium_dir: str, teeth_ratio=1.0, cranium_ratio=1.0, save_scaler_dir=None):
     # 从 .npy 文件加载特征
     tx_train, ty_train, tx_test, ty_test = load_features_from_npy(teeth_dir)
-    hx_train, hy_train, hx_test, hy_test = load_features_from_npy(head_dir)
+    hx_train, hy_train, hx_test, hy_test = load_features_from_npy(cranium_dir)
 
     assert np.array_equal(ty_train, hy_train), "训练集标签不匹配！请检查特征提取过程。"
     assert np.array_equal(ty_test, hy_test), "测试集标签不匹配！请检查特征提取过程。"
@@ -27,16 +27,16 @@ def fuse_features(teeth_dir: str, head_dir: str, teeth_ratio=1.0, head_ratio=1.0
     tx_train_scaled = scaler_teeth.fit_transform(tx_train)
     tx_test_scaled  = scaler_teeth.transform(tx_test)
 
-    # Head归一化
-    scaler_head = MinMaxScaler(feature_range=(0, head_ratio))
-    hx_train_scaled = scaler_head.fit_transform(hx_train)
-    hx_test_scaled  = scaler_head.transform(hx_test)
+    # Cranium归一化
+    scaler_cranium = MinMaxScaler(feature_range=(0, cranium_ratio))
+    hx_train_scaled = scaler_cranium.fit_transform(hx_train)
+    hx_test_scaled  = scaler_cranium.transform(hx_test)
 
     # 可选地保存scaler
     if save_scaler_dir:
         os.makedirs(save_scaler_dir, exist_ok=True)
         joblib.dump(scaler_teeth, os.path.join(save_scaler_dir, 'scaler_teeth.pkl'))
-        joblib.dump(scaler_head, os.path.join(save_scaler_dir, 'scaler_head.pkl'))
+        joblib.dump(scaler_cranium, os.path.join(save_scaler_dir, 'scaler_cranium.pkl'))
         print(f"特征缩放器 (Scaler) 已保存至: {save_scaler_dir}")
 
     # 特征拼接 (CONCAT)

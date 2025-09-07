@@ -13,7 +13,7 @@ class HierarchicalPredictor:
     """
     单模态预测器（属+种两级）
     """
-    def __init__(self, model_name='efficientnet_b7', data_type='head',
+    def __init__(self, model_name='efficientnet_b7', data_type='cranium',
                  dataset_name=None, weights_root=None,input_size=600, device='cuda:0'):
         self.model_name = model_name
         self.data_type = data_type
@@ -130,27 +130,27 @@ class FusionHierarchicalPredictor:
             base_fusion_path  = os.path.join(self.weights_root, 'fusion', 'species', genus_name)
         try:
             # 类别信息
-            with open(os.path.join(base_weights_path, 'head', 'classes.txt')) as f:
+            with open(os.path.join(base_weights_path, 'cranium', 'classes.txt')) as f:
                 num_classes_backbone = len([l.strip() for l in f])
             with open(os.path.join(base_fusion_path, 'classes.txt')) as f:
                 fusion_classes = [l.strip() for l in f]
             num_classes_mlp = len(fusion_classes)
 
-            # Head 模型
-            head_model = build_model(self.model_name, num_classes=num_classes_backbone, use_pretrained=False).to(self.device)
-            if hasattr(head_model, 'classifier') and isinstance(head_model.classifier, nn.Sequential):
-                feature_dim = head_model.classifier[-1].in_features
-            elif hasattr(head_model, 'fc'):
-                feature_dim = head_model.fc.in_features
+            # Cranium 模型
+            cranium_model = build_model(self.model_name, num_classes=num_classes_backbone, use_pretrained=False).to(self.device)
+            if hasattr(cranium_model, 'classifier') and isinstance(cranium_model.classifier, nn.Sequential):
+                feature_dim = cranium_model.classifier[-1].in_features
+            elif hasattr(cranium_model, 'fc'):
+                feature_dim = cranium_model.fc.in_features
             else:
                 raise ValueError(f"无法识别模型 {self.model_name} 的特征层")
-            head_model.load_state_dict(torch.load(os.path.join(base_weights_path, 'head', 'best_network.pth'),
+            cranium_model.load_state_dict(torch.load(os.path.join(base_weights_path, 'cranium', 'best_network.pth'),
                                                   map_location=self.device))
-            if hasattr(head_model, 'classifier') and isinstance(head_model.classifier, nn.Sequential):
-                head_model.classifier[-1] = nn.Identity()
-            elif hasattr(head_model, 'fc'):
-                head_model.fc = nn.Identity()
-            head_model.eval()
+            if hasattr(cranium_model, 'classifier') and isinstance(cranium_model.classifier, nn.Sequential):
+                cranium_model.classifier[-1] = nn.Identity()
+            elif hasattr(cranium_model, 'fc'):
+                cranium_model.fc = nn.Identity()
+            cranium_model.eval()
 
             # Teeth 模型
             teeth_model = build_model(self.model_name, num_classes=num_classes_backbone, use_pretrained=False).to(self.device)
@@ -163,7 +163,7 @@ class FusionHierarchicalPredictor:
             teeth_model.eval()
 
             # Scalers
-            scaler_head = joblib.load(os.path.join(base_fusion_path, 'scaler_head.pkl'))
+            scaler_cranium = joblib.load(os.path.join(base_fusion_path, 'scaler_cranium.pkl'))
             scaler_teeth = joblib.load(os.path.join(base_fusion_path, 'scaler_teeth.pkl'))
 
             # Fusion MLP
@@ -174,9 +174,9 @@ class FusionHierarchicalPredictor:
             fusion_mlp.eval()
 
             return {
-                "head_extractor": head_model,
+                "cranium_extractor": cranium_model,
                 "teeth_extractor": teeth_model,
-                "scaler_head": scaler_head,
+                "scaler_cranium": scaler_cranium,
                 "scaler_teeth": scaler_teeth,
                 "fusion_mlp": fusion_mlp,
                 "classes": fusion_classes
@@ -186,27 +186,27 @@ class FusionHierarchicalPredictor:
             print(f"警告: {mode}/{genus_name or ''} 资源缺失: {e}")
             return None
 
-    def _predict_single_level(self, head_tensor, teeth_tensor, res):
+    def _predict_single_level(self, cranium_tensor, teeth_tensor, res):
         with torch.no_grad():
-            head_feat = res['head_extractor'](head_tensor).detach().cpu().numpy()
+            cranium_feat = res['cranium_extractor'](cranium_tensor).detach().cpu().numpy()
             teeth_feat = res['teeth_extractor'](teeth_tensor).detach().cpu().numpy()
-            head_feat_scaled = res['scaler_head'].transform(head_feat)
+            cranium_feat_scaled = res['scaler_cranium'].transform(cranium_feat)
             teeth_feat_scaled = res['scaler_teeth'].transform(teeth_feat)
-            fused_feat = np.concatenate([teeth_feat_scaled, head_feat_scaled], axis=1)
+            fused_feat = np.concatenate([teeth_feat_scaled, cranium_feat_scaled], axis=1)
             fused_tensor = torch.from_numpy(fused_feat).float().to(self.device)
             out = res['fusion_mlp'](fused_tensor)
             prob = torch.softmax(out, dim=1)
             conf, idx = prob.max(1)
         return res['classes'][idx.item()], conf.item()
 
-    def predict(self, head_image_path, teeth_image_path):
-        head_img = Image.open(head_image_path).convert('RGB')
+    def predict(self, cranium_image_path, teeth_image_path):
+        cranium_img = Image.open(cranium_image_path).convert('RGB')
         teeth_img = Image.open(teeth_image_path).convert('RGB')
-        head_t = self.transform(head_img).unsqueeze(0).to(self.device)
+        cranium_t = self.transform(cranium_img).unsqueeze(0).to(self.device)
         teeth_t = self.transform(teeth_img).unsqueeze(0).to(self.device)
-        g_name, g_conf = self._predict_single_level(head_t, teeth_t, self.genus_resources)
+        g_name, g_conf = self._predict_single_level(cranium_t, teeth_t, self.genus_resources)
         if g_name in self.species_resources:
-            s_name, s_conf = self._predict_single_level(head_t, teeth_t, self.species_resources[g_name])
+            s_name, s_conf = self._predict_single_level(cranium_t, teeth_t, self.species_resources[g_name])
             return {
                 "predicted_genus": g_name, "genus_confidence": g_conf,
                 "final_prediction": s_name, "final_confidence": s_conf

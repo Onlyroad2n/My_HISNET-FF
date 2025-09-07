@@ -14,21 +14,21 @@ from config import FEATURES_ROOT, WEIGHTS_ROOT
 def main(args):
     if args.mode == 'genus':
         teeth_dir = os.path.join(FEATURES_ROOT, 'genus', 'teeth')
-        head_dir  = os.path.join(FEATURES_ROOT, 'genus', 'head')
+        cranium_dir  = os.path.join(FEATURES_ROOT, 'genus', 'cranium')
         save_weight_dir = os.path.join(WEIGHTS_ROOT, 'fusion', 'genus')
-        source_class_file = os.path.join(WEIGHTS_ROOT, 'pretrain', 'genus', 'head', 'classes.txt')
+        source_class_file = os.path.join(WEIGHTS_ROOT, 'pretrain', 'genus', 'cranium', 'classes.txt')
 
     elif args.mode == 'species':
         if not args.target_genus:
             parser.error("--mode 'species' 需要指定 --target_genus。")
         teeth_dir = os.path.join(FEATURES_ROOT, 'species', args.target_genus, 'teeth')
-        head_dir  = os.path.join(FEATURES_ROOT, 'species', args.target_genus, 'head')
+        cranium_dir  = os.path.join(FEATURES_ROOT, 'species', args.target_genus, 'cranium')
         save_weight_dir = os.path.join(WEIGHTS_ROOT, 'fusion', 'species', args.target_genus)
-        source_class_file = os.path.join(WEIGHTS_ROOT, 'pretrain', 'species', args.target_genus, 'head', 'classes.txt')
+        source_class_file = os.path.join(WEIGHTS_ROOT, 'pretrain', 'species', args.target_genus, 'cranium', 'classes.txt')
 
     
     print(f"模式: '{args.mode}', 目标属: '{args.target_genus or 'N/A'}'")
-    print(f"读取 Head 特征自: {head_dir}")
+    print(f"读取 Cranium 特征自: {cranium_dir}")
     print(f"读取 Teeth 特征自: {teeth_dir}")
     print(f"融合模型将保存至: {save_weight_dir}")
     os.makedirs(save_weight_dir, exist_ok=True)
@@ -39,19 +39,19 @@ def main(args):
         print(f"类别文件已成功保存至: {dest_class_file}")
     except FileNotFoundError:
         print(f"\n错误: 未能找到源类别文件: {source_class_file}")
-        print("请确保您已经为 'head' 数据类型成功运行了 train.py。")
+        print("请确保您已经为 'cranium' 数据类型成功运行了 train.py。")
         return
 
     try:
         x_train, y_train, x_test, y_test = fuse_features(
-            teeth_dir, head_dir,
+            teeth_dir, cranium_dir,
             teeth_ratio=args.teeth_ratio,
-            head_ratio=args.head_ratio,
+            cranium_ratio=args.cranium_ratio,
             save_scaler_dir=save_weight_dir
         )
     except FileNotFoundError as e:
         print(f"\n错误: 特征文件未找到！ {e}")
-        print("请确保您已经为 'head' 和 'teeth' 两种数据类型都成功运行了 extract_features.py。")
+        print("请确保您已经为 'cranium' 和 'teeth' 两种数据类型都成功运行了 extract_features.py。")
         return
         
     print(f"融合后训练特征维度: {x_train.shape}")
@@ -130,11 +130,11 @@ if __name__ == "__main__":
     parser.add_argument('--mode', type=str, required=True, choices=['genus', 'species'], help='设置模式: "genus" 或 "species".')
     parser.add_argument('--target_genus', type=str, default=None, help='当模式为 "species" 时，需要指定目标属。')
     parser.add_argument('--teeth_ratio', type=float, default=1.0, help='牙齿特征的归一化最大值。')
-    parser.add_argument('--head_ratio', type=float, default=1.0, help='头骨特征的归一化最大值。')
+    parser.add_argument('--cranium_ratio', type=float, default=1.0, help='头骨特征的归一化最大值。')
     parser.add_argument('--epochs', type=int, default=100, help='训练轮数。')
     parser.add_argument('--batch_size', type=int, default=64, help='批处理大小。')
     parser.add_argument('--lr', type=float, default=0.001, help='学习率。')
-    parser.add_argument('--patience', type=int, default=50, help='早停的耐心轮数。')
+    parser.add_argument('--patience', type=int, default=20, help='早停的耐心轮数。')
     parser.add_argument('--hidden_dim', type=int, default=1024, help='MLP隐藏层维度。')
     parser.add_argument('--dropout', type=float, default=0.5, help='Dropout比率。')
     parser.add_argument('--device', type=str, default='cuda:0', help='计算设备。')
